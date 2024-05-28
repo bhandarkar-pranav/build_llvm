@@ -232,7 +232,7 @@ build_llvm_gh() {
     $AOMP_GFXLIST_OPT \
     $AOMP_NVPTX_CAPS_OPT \
     $ENABLE_DEBUG_OPT \
-    -DCMAKE_LLVM_RUNTIMES='openmp;compiler-rt' \
+    -DCMAKE_LLVM_RUNTIMES='openmp;compiler-rt;offload' \
     "
 
     # if [ "$BUILD_TYPE" == "Release" ]; then
@@ -245,7 +245,7 @@ build_llvm_gh() {
     pushd . >/dev/null
     cd ${BUILD_DIR}
     echo "-----Running cmake-----"
-    echo "cmake -g Ninja $CMAKE_OPTIONS -DLLVM_LIT_ARGS=-vv --show-unsupported --show-xfail -j 32  ${ROOT}/llvm-project/llvm"
+    echo "cmake -G Ninja $CMAKE_OPTIONS -DLLVM_LIT_ARGS=-vv --show-unsupported --show-xfail -j 32  ${ROOT}/llvm-project/llvm"
     cmake -G Ninja $CMAKE_OPTIONS -DLLVM_LIT_ARGS="-vv --show-unsupported --show-xfail -j 32" ${WORK_AREA}/llvm-project/llvm
 
     if [ $? != 0 ] ; then
@@ -312,10 +312,10 @@ update_llvm_gh() {
     pushd . >/dev/null
     cd ${BUILD_DIR}
     echo "-----Running ninja------"
-    echo "ninja -j $AOMP_JOB_THREADS"
+    echo "ninja -j 64"
     ninja -j 64
     echo "-----Installing-------"
-    echo "ninja -j $AOMP_JOB_THREADS"
+    echo "ninja -j 64"
     ninja -j 64 install
     popd >/dev/null
 }
