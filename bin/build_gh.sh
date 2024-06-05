@@ -22,13 +22,13 @@ case $1 in
     "-c" | "--clean")
 	echo "-----Clean build------"
 	build_llvm_gh
-#	check_all
+	check_all
 	exit 0
 	;;
     "-u" | "--update")
 	echo "-----Updating existing build-----"
 	update_llvm_gh
-#	check_all
+	check_all
 	exit 0
 	;;
 esac

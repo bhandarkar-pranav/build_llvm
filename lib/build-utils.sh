@@ -76,7 +76,9 @@ clone_repo_() {
     then
 	echo "${WORK_AREA}/llvm-project already exists."
     else
+	set -x
 	git clone git@github.com:${USER_OR_ORG}/llvm-project.git ${WORK_AREA}/llvm-project
+	set +x
     fi
 }
 set_up_env_global_vars_() {
@@ -106,7 +108,7 @@ are_required_globals_set() {
 # 3) if ${ROOT}/build is valid
 # Even if one condition fails, it calls `set_up`.
 check_setup_() {
-    # We purposely do no use ${WORK_AREA} because it is set up by set_up
+    # We purposely do not use ${WORK_AREA} because it is set up by set_up
     check_user_or_org_
     if ! is_root_set_ || ! is_root_valid_path_ || [[ ! -d ${ROOT}/${USER_OR_ORG}/llvm-project ]] || [[ ! -d ${ROOT}/${USER_OR_ORG}/build ]];
     then
@@ -131,11 +133,16 @@ get_default_build_id_() {
 	    ;;
     esac
 }
-set_up_vars_for_new_gh_build_() {
-    if ! check_setup_
+setup_if_needed() {
+    if ! check_setup_ || ! are_required_globals_set
     then
 	set_up
     fi
+
+}
+set_up_vars_for_new_gh_build_() {
+
+    setup_if_needed
     # Unless build_id is provided, it'll be a string based on the current date
     # '12Feb24'
     BUILD_ID=${BUILD_ID:-$(get_default_build_id_)}
@@ -245,7 +252,7 @@ build_llvm_gh() {
     pushd . >/dev/null
     cd ${BUILD_DIR}
     echo "-----Running cmake-----"
-    echo "cmake -G Ninja $CMAKE_OPTIONS -DLLVM_LIT_ARGS=-vv --show-unsupported --show-xfail -j 32  ${ROOT}/llvm-project/llvm"
+    echo "cmake -G Ninja $CMAKE_OPTIONS -DLLVM_LIT_ARGS=-vv --show-unsupported --show-xfail -j 32  ${WORK_AREA}/llvm-project/llvm"
     cmake -G Ninja $CMAKE_OPTIONS -DLLVM_LIT_ARGS="-vv --show-unsupported --show-xfail -j 32" ${WORK_AREA}/llvm-project/llvm
 
     if [ $? != 0 ] ; then
@@ -318,4 +325,70 @@ update_llvm_gh() {
     echo "ninja -j 64"
     ninja -j 64 install
     popd >/dev/null
+}
+# Returns a string that can be used a suffix to identify
+# an llvm test run such as ninja check-llvm or
+# ninja check-llvm check-flang check-openmp
+# Right now, the value returned is simply a formatted
+# date string
+get_suffix_for_llvm_test_results() {
+    FORMATTED_DATE=$(date +"%d_%h_%y_%H_%M")
+    echo ${FORMATTED_DATE}
+}
+handle_llvm_check_error_() {
+    echo "check-$1 failed. Results in $2"
+}
+llvm_check_() {
+    SUFFIX=$(get_suffix_for_llvm_test_results)
+    CMD_ARGS=""
+    TESTS=""
+    TESTS_BUILD_DIR=$(pwd)
+    for arg in "$@"
+    do
+	CMD_ARGS="$CMD_ARGS check-$arg"
+	TESTS="${TESTS}-${arg}"
+	mkdir -p ninja_check_dir
+	LOG_FILE="./ninja_check_dir/check-${arg}-${SUFFIX}.txt"
+	LOG_FILE_FULL_PATH=$(readlink -f ${LOG_FILE})
+	trap "handle_llvm_check_error_ ${arg} ${LOG_FILE_FULL_PATH}" ERR
+	echo "----------- check-${arg} results --------" > ${LOG_FILE}
+	echo "Date: ${SUFFIX}" >> ${LOG_FILE}
+        ag "LLVM_REVISION"  ./include/llvm/Support/VCSRevision.h  | awk '{printf "%s:  %s\n", $2, $3}' >>  ${LOG_FILE}
+	ninja -j 64 check-${arg} 2>&1 | tee -a ${LOG_FILE}
+	if [ $? != 0 ];
+	then
+	    result="Result: Failed"
+	else
+	    result="Result: Passed"
+	fi
+	echo "----------------------------------------------------" >> ${LOG_FILE}
+	echo "DONE::: $(date +\"%H:%M::%d-%h-%y\") -> $result" >> ${LOG_FILE}
+	echo "----------------------------------------------------" >> ${LOG_FILE}
+	trap - ERR
+    done
+
+}
+check_llvm() {
+    setup_if_needed
+    build_dir=$(get_build_dir_)
+    pushd .
+    cd $build_dir
+    llvm_check_ llvm
+    popd
+}
+check_all() {
+    setup_if_needed
+    build_dir=$(get_build_dir_)
+    pushd .
+    cd $build_dir
+    llvm_check_ llvm clang mlir flang openmp offload
+    popd
+}
+check_some() {
+    setup_if_needed
+    build_dir=$(get_build_dir_)
+    pushd .
+    cd $build_dir
+    llvm_check_ $@
+    popd
 }
