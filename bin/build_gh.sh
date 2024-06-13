@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 set -o pipefail
 usage() {
@@ -20,13 +20,11 @@ case $1 in
 	exit 0
 	;;
     "-c" | "--clean")
-	echo "-----Clean build------"
 	build_llvm_gh
 	check_all
 	exit 0
 	;;
     "-u" | "--update")
-	echo "-----Updating existing build-----"
 	update_llvm_gh
 	check_all
 	exit 0

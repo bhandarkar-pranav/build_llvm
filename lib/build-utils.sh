@@ -228,7 +228,7 @@ build_llvm_gh() {
     -DCOMPILER_RT_BUILD_XRAY=OFF \
     -DCOMPILER_RT_BUILD_MEMPROF=OFF \
     -DCOMPILER_RT_BUILD_LIBFUZZER=OFF \
-    -DCOMPILER_RT_BUILD_SANITIZERS=OFF \
+    -DCOMPILER_RT_BUILD_SANITIZERS=ON \
     $AOMP_CCACHE_OPTS \
     -DLLVM_ENABLE_PROJECTS='clang;lld;llvm;flang' \
     -DLLVM_INSTALL_UTILS=ON \
@@ -239,7 +239,7 @@ build_llvm_gh() {
     $AOMP_GFXLIST_OPT \
     $AOMP_NVPTX_CAPS_OPT \
     $ENABLE_DEBUG_OPT \
-    -DCMAKE_LLVM_RUNTIMES='openmp;compiler-rt;offload' \
+    -DLLVM_ENABLE_RUNTIMES='openmp;compiler-rt;offload' \
     "
 
     # if [ "$BUILD_TYPE" == "Release" ]; then
@@ -248,6 +248,8 @@ build_llvm_gh() {
     # 	CMAKE_LLVM_RUNTIMES="-DLLVM_ENABLE_RUNTIMES='compiler-rt'"
     # fi
     set_up_build_dir_ $BUILD_DIR
+
+    echo "----- Fresh LLVM build at $BUILD_DIR -----"
 
     pushd . >/dev/null
     cd ${BUILD_DIR}
@@ -269,6 +271,7 @@ build_llvm_gh() {
     echo "ninja -j64 install"
     ninja -j 64 install
     ln -sf ${INSTALL_DIR} install
+    ln -sf ${WORK_AREA}/llvm-project llvm_project_src_dir
     popd >/dev/null
 
     pushd . > /dev/null
@@ -335,11 +338,15 @@ get_suffix_for_llvm_test_results() {
     FORMATTED_DATE=$(date +"%d_%h_%y_%H_%M")
     echo ${FORMATTED_DATE}
 }
+get_branch_and_sha() {
+    echo "$( cd ${WORK_AREA}/llvm-project && echo $(git rev-parse --abbrev-ref HEAD)-$(git rev-parse --short HEAD) && cd - >/dev/null )"
+}
 handle_llvm_check_error_() {
     echo "check-$1 failed. Results in $2"
 }
 llvm_check_() {
     SUFFIX=$(get_suffix_for_llvm_test_results)
+    BRANCH_SHA=$(get_branch_and_sha llvm_project_src_dir)
     CMD_ARGS=""
     TESTS=""
     TESTS_BUILD_DIR=$(pwd)
@@ -347,8 +354,8 @@ llvm_check_() {
     do
 	CMD_ARGS="$CMD_ARGS check-$arg"
 	TESTS="${TESTS}-${arg}"
-	mkdir -p ninja_check_dir
-	LOG_FILE="./ninja_check_dir/check-${arg}-${SUFFIX}.txt"
+	mkdir -p ninja_check_dir/${BRANCH_SHA}
+	LOG_FILE="./ninja_check_dir/${BRANCH_SHA}/${arg}-${SUFFIX}.txt"
 	LOG_FILE_FULL_PATH=$(readlink -f ${LOG_FILE})
 	trap "handle_llvm_check_error_ ${arg} ${LOG_FILE_FULL_PATH}" ERR
 	echo "----------- check-${arg} results --------" > ${LOG_FILE}
@@ -371,24 +378,24 @@ llvm_check_() {
 check_llvm() {
     setup_if_needed
     build_dir=$(get_build_dir_)
-    pushd .
+    pushd . >/dev/null
     cd $build_dir
     llvm_check_ llvm
-    popd
+    popd >/dev/null
 }
 check_all() {
     setup_if_needed
     build_dir=$(get_build_dir_)
-    pushd .
+    pushd .  >/dev/null
     cd $build_dir
     llvm_check_ llvm clang mlir flang openmp offload
-    popd
+    popd >/dev/null
 }
 check_some() {
     setup_if_needed
     build_dir=$(get_build_dir_)
-    pushd .
+    pushd .  >/dev/null
     cd $build_dir
     llvm_check_ $@
-    popd
+    popd > /dev/null
 }
