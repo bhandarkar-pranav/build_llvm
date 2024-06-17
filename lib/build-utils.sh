@@ -3,7 +3,8 @@
 # The following directory strucutre is assumed
 # The source repository 'llvm-project' resides in ${WORK_AREA}
 # where WORK_AREA=${ROOT}/${USER_OR_ORG}
-# ROOT has to be provided at all times and doesn't have a default value
+# ROOT has to be provided at all times and doesn't have a default value. e.g. On
+# AMD machines, it'll typically be ROOT=$HOME/git.
 # USER_OR_ORG can be specified by the user but the default value is 'bhandarkar-pranav'
 
 
@@ -350,6 +351,7 @@ llvm_check_() {
     CMD_ARGS=""
     TESTS=""
     TESTS_BUILD_DIR=$(pwd)
+    echo "---- Testing in ${TESTS_BUILD_DIR} ----"
     for arg in "$@"
     do
 	CMD_ARGS="$CMD_ARGS check-$arg"
@@ -376,7 +378,7 @@ llvm_check_() {
 
 }
 check_llvm() {
-    setup_if_needed
+    setup_if_needed >/dev/null
     build_dir=$(get_build_dir_)
     pushd . >/dev/null
     cd $build_dir
@@ -384,7 +386,7 @@ check_llvm() {
     popd >/dev/null
 }
 check_all() {
-    setup_if_needed
+    setup_if_needed >/dev/null
     build_dir=$(get_build_dir_)
     pushd .  >/dev/null
     cd $build_dir
@@ -392,7 +394,7 @@ check_all() {
     popd >/dev/null
 }
 check_some() {
-    setup_if_needed
+    setup_if_needed >/dev/null
     build_dir=$(get_build_dir_)
     pushd .  >/dev/null
     cd $build_dir
