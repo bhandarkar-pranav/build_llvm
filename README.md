@@ -5,7 +5,7 @@ other scripts to simplify life inside my company.
 
 ## Basic Setup
 
-The repository has two important directorys `lib` and `bin`. The `bin` directory is meant to
+The repository has two important directories `lib` and `bin`. The `bin` directory is meant to
 house executable scripts that use functionality provided by code in the `lib` directory. The
 main library inside `lib` is `build-utils.sh`.
 
@@ -16,8 +16,8 @@ The source repository `llvm-project` resides in `${WORK_AREA}` where
 
  `WORK_AREA=${ROOT}/${USER_OR_ORG}`
 
-`ROOT` has to be provided at all times and doesn't have a default value. e.g. On
- AMD machines, it'll typically be `ROOT=$HOME/git`.
+==`ROOT` has to be provided at all times and doesn't have a default value. e.g. On
+ AMD machines, it'll typically be `ROOT=$HOME/git`.==
  `USER_OR_ORG` can be specified by the user but the default value is `bhandarkar-pranav`
 
 
