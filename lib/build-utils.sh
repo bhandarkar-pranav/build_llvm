@@ -370,9 +370,9 @@ llvm_check_() {
 	else
 	    result="Result: Passed"
 	fi
-	echo "----------------------------------------------------" >> ${LOG_FILE}
-	echo "DONE::: $(date +\"%H:%M::%d-%h-%y\") -> $result" >> ${LOG_FILE}
-	echo "----------------------------------------------------" >> ${LOG_FILE}
+	echo "------------------------------------------------------" >> ${LOG_FILE}
+	echo "DONE::: $(date +\"%H:%M::%d-%h-%y\") -> ${arg}:$result" >> ${LOG_FILE}
+	echo "------------------------------------------------------" >> ${LOG_FILE}
 	trap - ERR
     done
 
