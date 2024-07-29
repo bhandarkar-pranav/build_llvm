@@ -52,12 +52,12 @@ check_root_() {
 	# var is set
 	if  ! is_root_valid_path_ ;
 	then
-	    echo "Bad value for ROOT -> ${ROOT}. Exiting..."
+	    echo "Bad value for ROOT -> ${ROOT}. Exiting..." >&2
 	    exit 1
 	fi
     else
 	# var is unset
-	echo "Environment variable ROOT not set. Exiting..."
+	echo "Environment variable ROOT not set. Exiting..." >&2
 	exit 1
     fi
 }
@@ -259,8 +259,8 @@ build_llvm_gh() {
     cmake -G Ninja $CMAKE_OPTIONS -DLLVM_LIT_ARGS="-vv --show-unsupported --show-xfail -j 32" ${WORK_AREA}/llvm-project/llvm
 
     if [ $? != 0 ] ; then
-      echo "ERROR cmake failed. Cmake flags"
-      echo "      $MYCMAKEOPTS"
+      echo "ERROR cmake failed. Cmake flags" >&2
+      echo "      $MYCMAKEOPTS" >&2
       exit 1
     fi
 
