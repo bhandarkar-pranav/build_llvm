@@ -371,11 +371,23 @@ llvm_check_() {
 	    result="Result: Passed"
 	fi
 	echo "------------------------------------------------------" >> ${LOG_FILE}
-	echo "DONE::: $(date +\"%H:%M::%d-%h-%y\") -> ${arg}:$result" >> ${LOG_FILE}
+	echo "DONE::: $(echo ${arg} | tr 'a-z' 'A-Z') $(date +\"%H:%M::%d-%h-%y\") -> $result" >> ${LOG_FILE}
 	echo "------------------------------------------------------" >> ${LOG_FILE}
 	trap - ERR
     done
-
+    for arg in "$@"
+    do
+	LOG_FILE="./ninja_check_dir/${BRANCH_SHA}/${arg}-${SUFFIX}.txt"
+	LOG_FILE_FULL_PATH=$(readlink -f ${LOG_FILE})
+	if [ -f ${LOG_FILE_FULL_PATH} ];
+	then
+	    COMPONENT=$(echo ${arg} | tr 'a-z' 'A-Z')
+	    echo "----------------------------------------"
+	    echo "          ${COMPONENT}"
+	    echo "----------------------------------------"
+	    tail -10 ${LOG_FILE_FULL_PATH}
+	fi
+    done
 }
 check_llvm() {
     setup_if_needed >/dev/null
