@@ -336,7 +336,11 @@ update_llvm_gh() {
 # Right now, the value returned is simply a formatted
 # date string
 get_suffix_for_llvm_test_results() {
-    FORMATTED_DATE=$(date +"%d_%h_%y_%H_%M")
+    FORMATTED_DATE=$(date +"%H-%M-%S")
+    echo ${FORMATTED_DATE}
+}
+get_subdir_for_llvm_test_results() {
+    FORMATTED_DATE=$(date +"%Y-%m-%d")
     echo ${FORMATTED_DATE}
 }
 get_branch_and_sha() {
@@ -346,6 +350,7 @@ handle_llvm_check_error_() {
     echo "check-$1 failed. Results in $2"
 }
 llvm_check_() {
+    LOG_SUBDIR=$(get_subdir_for_llvm_test_results)
     SUFFIX=$(get_suffix_for_llvm_test_results)
     BRANCH_SHA=$(get_branch_and_sha llvm_project_src_dir)
     CMD_ARGS=""
@@ -356,8 +361,8 @@ llvm_check_() {
     do
 	CMD_ARGS="$CMD_ARGS check-$arg"
 	TESTS="${TESTS}-${arg}"
-	mkdir -p ninja_check_dir/${BRANCH_SHA}
-	LOG_FILE="./ninja_check_dir/${BRANCH_SHA}/${arg}-${SUFFIX}.txt"
+	mkdir -p ninja_check_dir/${BRANCH_SHA}/${LOG_SUBDIR}
+	LOG_FILE="./ninja_check_dir/${BRANCH_SHA}/${LOG_SUBDIR}/${arg}-${SUFFIX}.txt"
 	LOG_FILE_FULL_PATH=$(readlink -f ${LOG_FILE})
 	trap "handle_llvm_check_error_ ${arg} ${LOG_FILE_FULL_PATH}" ERR
 	echo "----------- check-${arg} results --------" > ${LOG_FILE}
@@ -377,7 +382,7 @@ llvm_check_() {
     done
     for arg in "$@"
     do
-	LOG_FILE="./ninja_check_dir/${BRANCH_SHA}/${arg}-${SUFFIX}.txt"
+	LOG_FILE="./ninja_check_dir/${BRANCH_SHA}/${LOG_SUBDIR}/${arg}-${SUFFIX}.txt"
 	LOG_FILE_FULL_PATH=$(readlink -f ${LOG_FILE})
 	if [ -f ${LOG_FILE_FULL_PATH} ];
 	then
