@@ -361,8 +361,9 @@ llvm_check_() {
     do
 	CMD_ARGS="$CMD_ARGS check-$arg"
 	TESTS="${TESTS}-${arg}"
-	mkdir -p ninja_check_dir/${BRANCH_SHA}/${LOG_SUBDIR}
-	LOG_FILE="./ninja_check_dir/${BRANCH_SHA}/${LOG_SUBDIR}/${arg}-${SUFFIX}.txt"
+	LOG_DIR=./ninja_check_dir/${LOG_SUBDIR}/${BRANCH_SHA}
+	mkdir -p ${LOG_DIR}
+	LOG_FILE="${LOG_DIR}/${arg}-${SUFFIX}.txt"
 	LOG_FILE_FULL_PATH=$(readlink -f ${LOG_FILE})
 	trap "handle_llvm_check_error_ ${arg} ${LOG_FILE_FULL_PATH}" ERR
 	echo "----------- check-${arg} results --------" > ${LOG_FILE}
@@ -382,7 +383,9 @@ llvm_check_() {
     done
     for arg in "$@"
     do
-	LOG_FILE="./ninja_check_dir/${BRANCH_SHA}/${LOG_SUBDIR}/${arg}-${SUFFIX}.txt"
+	LOG_DIR=./ninja_check_dir/${LOG_SUBDIR}/${BRANCH_SHA}
+	mkdir -p ${LOG_DIR}
+	LOG_FILE="${LOG_DIR}/${arg}-${SUFFIX}.txt"
 	LOG_FILE_FULL_PATH=$(readlink -f ${LOG_FILE})
 	if [ -f ${LOG_FILE_FULL_PATH} ];
 	then
