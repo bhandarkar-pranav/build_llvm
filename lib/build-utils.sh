@@ -418,3 +418,69 @@ check_some() {
     llvm_check_ $@
     popd > /dev/null
 }
+clone_llvm_testsuite() {
+    if [ ! -d ${WORK_AREA}/test-suite ];
+    then
+	set -x
+	echo "Cloning the LLVM  testuite at ${WORK_AREA}/test-suite"
+	git clone git@github.com:llvm/llvm-test-suite.git ${WORK_AREA}/test-suite
+	set +x
+    else
+	echo "Using LLVM testsuite at ${WORK_AREA}/test-suite"
+    fi
+}
+setenv_llvm_testsuite() {
+    echo "Setting up the environment for running the LLVM testsuite"
+    export LLVM_PREFIX=$1
+    export CXX=${LLVM_PREFIX}/bin/clang++
+    export CC=${LLVM_PREFIX}/bin/clang
+    export FC=${LLVM_PREFIX}/bin/flang-new
+    export TESTSUITE=${TESTSUITE:-${WORK_AREA}/test-suite}
+    export LLVM_LIT=${LLVM_LIT:-${BUILD_ROOT}/latest_build_dir/bin/llvm-lit}
+}
+# unsetenv_llvm_testsuite() {
+#     echo "Resetting the environment"
+#     unset LLVM_PREFIX
+#     unset CXX
+#     unset CC
+#     unset FC
+#     unset TESTSUITE
+#     unset LLVM_LIT
+# }
+cmake_build_llvm_testsuite() {
+    export PATH=/home/prbhanda/git/bhandarkar-pranav/build/cmake_for_testsuite/cmake-3.29.3-linux-x86_64/bin:$PATH
+    CMAKE_VERSION=$(cmake --version | grep "cmake version"  | awk '{print $3}')
+    echo "cmake version = ${CMAKE_VERSION}"
+    set -x
+    cmake -G "Ninja" \
+	  -DCMAKE_C_COMPILER=${CC}  \
+	  -DCMAKE_CXX_COMPILER=${CXX} \
+	  -DCMAKE_Fortran_COMPILER=${FC} \
+	  -DTEST_SUITE_COLLECT_CODE_SIZE:STRING=OFF \
+	  -DTEST_SUITE_SUBDIRS:STRING="Fortran"  \
+	  -DTEST_SUITE_FORTRAN:STRING=ON \
+	  -DTEST_SUITE_LIT=${LLVM_LIT} \
+	  -DTEST_SUITE_FORTRAN_ISO_C_HEADER_DIR=/COD/LATEST/trunk-atd/lib/clang/20/include \
+	  ${TESTSUITE}
+    echo "======Building the tests======"
+    ninja
+
+}
+run_llvm_testsuite_tests() {
+    LD_LIBRARY_PATH=${LLVM_PREFIX}/lib ninja check
+}
+run_llvm_testsuite() {
+    setup_if_needed >/dev/null
+    clone_llvm_testsuite
+    set -x
+    setenv_llvm_testsuite $1
+    #    trap unsetenv_llvm_testsuite ERR INT EXIT
+    mkdir -p ${TESTSUITE}/build
+    pushd . >/dev/null
+    cd ${TESTSUITE}/build
+    echo "Fresh llvm testsuite build"
+#    rm -rf *
+    cmake_build_llvm_testsuite
+    run_llvm_testsuite_tests
+    popd >/dev/null
+}
