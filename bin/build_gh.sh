@@ -13,23 +13,40 @@ usage() {
 
 CURR_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${CURR_DIR}/../lib/build-utils.sh
+check="yes"
+clean="yes"
+while [[ $# -gt 0 ]];
+do
+    case $1 in
+	"-h" | "--help")
+	    usage
+	    exit 0
+	    ;;
+	"-c" | "--clean")
+	    clean="yes"
+	    ;;
+	"-u" | "--update")
+	    clean="no"
+	    ;;
+	"--no-check")
+	    check="no"
+	    ;;
+	*)
+	    build_llvm_gh
+	    ;;
+    esac
+    shift
+done
+if [[ "$clean" == "yes" ]];
+then
+    build_llvm_gh
+else
+    update_llvm_gh
+fi
 
-case $1 in
-    "-h" | "--help")
-	usage
-	exit 0
-	;;
-    "-c" | "--clean")
-	build_llvm_gh
-	check_all
-	exit 0
-	;;
-    "-u" | "--update")
-	update_llvm_gh
-	check_all
-	exit 0
-	;;
-esac
-build_llvm_gh
-#check_all
+if [[ "$check" == "yes" ]];
+then
+    check_all
+fi
+
 exit 0

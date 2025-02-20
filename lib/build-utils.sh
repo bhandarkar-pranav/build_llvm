@@ -42,6 +42,17 @@ is_root_valid_path_() {
 	false
     fi
 }
+num_jobs_() {
+    num_cores=$(nproc 2>/dev/null)
+    if [[ -z "$num_cores" ]]; then
+	num_cores=$(grep -c ^process /proc/cpuinfo 2>/dev/null)
+    fi
+    if [[ -z "$num_cores" ]]; then
+	num_cores=64
+    fi
+    num_cores=$((num_cores / 2))
+    echo "$num_cores"
+}
 # Check if the environment variable ${ROOT} is set
 # and is set to a valid path.
 # Hard fail (exit)  with a message if not set or
@@ -216,6 +227,7 @@ build_llvm_gh() {
     # Set up some variables for a new github build
     set_up_vars_for_new_gh_build_
 
+    NUM_JOBS_FOR_BUILD=$(num_jobs_)
     # Set up cmake options
     CMAKE_OPTIONS="\
     -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON \
@@ -267,10 +279,10 @@ build_llvm_gh() {
     # build llvm and install
     echo "-----Running ninja------"
     echo "ninja -j64 $AOMP_JOB_THREADS"
-    ninja -j 64
+    ninja -j ${NUM_JOBS_FOR_BUILD}
     echo "-----Installing-------"
     echo "ninja -j64 install"
-    ninja -j 64 install
+    ninja -j ${NUM_JOBS_FOR_BUILD} install
     ln -sf ${INSTALL_DIR} install
     ln -sf ${WORK_AREA}/llvm-project llvm_project_src_dir
     popd >/dev/null
@@ -312,22 +324,23 @@ build_llvm_gh() {
 get_build_dir_() {
     BUILD_LINK_NAME=$(get_build_link_name_)
     BUILD_DIR=${BUILD_DIR:-${BUILD_ROOT}/${BUILD_LINK_NAME}}
-    echo $BUILD_DIR
+    echo $(readlink -f ${BUILD_DIR})
 }
 
 update_llvm_gh() {
     set_up_env_global_vars_
+    NUM_JOBS_FOR_BUILD=$(num_jobs_)
 
     BUILD_DIR=${BUILD_DIR:-$(get_build_dir_)}
     echo "----- Updating build at $BUILD_DIR -----"
     pushd . >/dev/null
     cd ${BUILD_DIR}
     echo "-----Running ninja------"
-    echo "ninja -j 64"
-    ninja -j 64
+    echo "ninja -j ${NUM_JOBS_FOR_BUILD}"
+    ninja -j ${NUM_JOBS_FOR_BUILD}
     echo "-----Installing-------"
-    echo "ninja -j 64"
-    ninja -j 64 install
+    echo "ninja -j ${NUM_JOBS_FOR_BUILD}"
+    ninja -j ${NUM_JOBS_FOR_BUILD} install
     popd >/dev/null
 }
 # Returns a string that can be used a suffix to identify
@@ -353,15 +366,18 @@ llvm_check_() {
     LOG_SUBDIR=$(get_subdir_for_llvm_test_results)
     SUFFIX=$(get_suffix_for_llvm_test_results)
     BRANCH_SHA=$(get_branch_and_sha llvm_project_src_dir)
+    LOG_DIR=./ninja_check_dir/${LOG_SUBDIR}/${BRANCH_SHA}
     CMD_ARGS=""
     TESTS=""
     TESTS_BUILD_DIR=$(pwd)
+    NUM_JOBS_FOR_BUILD=$(num_jobs_)
+    declare -A RESULTS
     echo "---- Testing in ${TESTS_BUILD_DIR} ----"
     for arg in "$@"
     do
 	CMD_ARGS="$CMD_ARGS check-$arg"
 	TESTS="${TESTS}-${arg}"
-	LOG_DIR=./ninja_check_dir/${LOG_SUBDIR}/${BRANCH_SHA}
+	COMPONENT=$(echo ${arg} | tr 'a-z' 'A-Z')
 	mkdir -p ${LOG_DIR}
 	LOG_FILE="${LOG_DIR}/${arg}-${SUFFIX}.txt"
 	LOG_FILE_FULL_PATH=$(readlink -f ${LOG_FILE})
@@ -369,12 +385,14 @@ llvm_check_() {
 	echo "----------- check-${arg} results --------" > ${LOG_FILE}
 	echo "Date: ${SUFFIX}" >> ${LOG_FILE}
         ag "LLVM_REVISION"  ./include/llvm/Support/VCSRevision.h  | awk '{printf "%s:  %s\n", $2, $3}' >>  ${LOG_FILE}
-	ninja -j 64 check-${arg} 2>&1 | tee -a ${LOG_FILE}
+	ninja -j ${NUM_JOBS_FOR_BUILD} check-${arg} 2>&1 | tee -a ${LOG_FILE}
 	if [ $? != 0 ];
 	then
 	    result="Result: Failed"
+	    RESULTS["${COMPONENT}"]="Failed"
 	else
 	    result="Result: Passed"
+	    RESULTS["${COMPONENT}"]="Passed"
 	fi
 	echo "------------------------------------------------------" >> ${LOG_FILE}
 	echo "DONE::: $(echo ${arg} | tr 'a-z' 'A-Z') $(date +\"%H:%M::%d-%h-%y\") -> $result" >> ${LOG_FILE}
@@ -383,20 +401,24 @@ llvm_check_() {
     done
     for arg in "$@"
     do
-	LOG_DIR=./ninja_check_dir/${LOG_SUBDIR}/${BRANCH_SHA}
-	mkdir -p ${LOG_DIR}
 	LOG_FILE="${LOG_DIR}/${arg}-${SUFFIX}.txt"
 	LOG_FILE_FULL_PATH=$(readlink -f ${LOG_FILE})
-	if [ -f ${LOG_FILE_FULL_PATH} ];
-	then
-	    COMPONENT=$(echo ${arg} | tr 'a-z' 'A-Z')
-	    echo "----------------------------------------"
-	    echo "          ${COMPONENT}"
-	    echo "----------------------------------------"
-	    tail -10 ${LOG_FILE_FULL_PATH}
-	fi
+	COMPONENT=$(echo ${arg} | tr 'a-z' 'A-Z')
+	echo "${COMPONENT} : ${RESULTS[${COMPONENT}]} : ${LOG_FILE_FULL_PATH}"
+	# LOG_DIR=./ninja_check_dir/${LOG_SUBDIR}/${BRANCH_SHA}
+	# mkdir -p ${LOG_DIR}
+	# LOG_FILE="${LOG_DIR}/${arg}-${SUFFIX}.txt"
+	# LOG_FILE_FULL_PATH=$(readlink -f ${LOG_FILE})
+	# if [ -f ${LOG_FILE_FULL_PATH} ];
+	# then
+	#     echo "----------------------------------------"
+	#     echo "          ${COMPONENT}"
+	#     echo "----------------------------------------"
+	#     tail -10 ${LOG_FILE_FULL_PATH}
+	# fi
     done
 }
+
 check_llvm() {
     setup_if_needed >/dev/null
     build_dir=$(get_build_dir_)
