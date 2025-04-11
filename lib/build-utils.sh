@@ -220,7 +220,36 @@ set_up() {
     clone_repo_
     mkdir -p ${BUILD_ROOT}
 }
+build_llvm_flang_rt_hostdevice() {
+    BLD_DIR=$1
+    INSTALL_DIR=$2
+    GFXLIST=${GFXLIST:-"gfx700 gfx701 gfx801 gfx803 gfx900 gfx902 gfx906 gfx908 gfx90a gfx90c gfx942 gfx950 gfx1030 gfx1031 gfx1035 gfx1036 gfx1100 gfx1101 gfx1102 gfx1103 gfx1150 gfx1151 gfx1152 gfx1153 gfx1200 gfx1201 gfx9-generic gfx9-4-generic gfx10-1-generic gfx10-3-generic gfx11-generic gfx12-generic"}
+#    GFXLIST=${GFXLIST:-"gfx700 gfx701 gfx801 gfx803 gfx900 gfx902 gfx906 gfx908 gfx90a gfx90c gfx940 gfx941 gfx942 gfx1030 gfx1031 gfx1035 gfx1036 gfx1100 gfx1101 gfx1102 gfx1103 gfx1150 gfx1151 gfx1152 gfx1153 gfx1200 gfx1201 gfx9-generic gfx9-4-generic gfx10-1-generic gfx10-3-generic gfx11-generic gfx12-generic"}
+    ARCH_LIST=$(echo $GFXLIST | tr " " ",")
+    CMAKE_C_COMPILER=${INSTALL_DIR}/bin/clang
+    CMAKE_CXX_COMPILER=${INSTALL_DIR}/bin/clang++
 
+    INSTALL_DIR_NAME=$(basename $(readlink -f ${BLD_DIR}))
+    FRT_BLD_DIR=$BLD_DIR/../flang-runtime-${INSTALL_DIR_NAME}
+    OMPRUNTIME_DIR=${BLD_DIR}/runtimes/runtimes-bins/openmp/runtime/src
+    echo "BLD_DIR           = ${BLD_DIR}"
+    echo "FRT_BLD_DIR       = ${FRT_BLD_DIR}"
+    echo "INSTALL_DIR       = ${INSTALL_DIR}"
+    echo "OMPRUNTIME_DIR    = ${OMPRUNTIME_DIR}"
+
+    mkdir -p $FRT_BLD_DIR
+    cd $FRT_BLD_DIR
+    cmake -G Ninja \
+    -DFLANG_EXPERIMENTAL_OMP_OFFLOAD_BUILD="host_device" \
+    -DCMAKE_C_COMPILER=$CMAKE_C_COMPILER \
+    -DCMAKE_CXX_COMPILER=$CMAKE_CXX_COMPILER \
+    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+    "-DCMAKE_C_FLAGS=-I$OMPRUNTIME_DIR" \
+    "-DCMAKE_CXX_FLAGS=-I$OMPRUNTIME_DIR" \
+    -DFLANG_OMP_DEVICE_ARCHITECTURES="$ARCH_LIST" \
+    ~/git/bhandarkar-pranav/llvm-project/flang/runtime
+
+}
 # Function to build and install github.com/bhandarkar-pranav/llvm-project
 build_llvm_gh() {
 
@@ -247,6 +276,7 @@ build_llvm_gh() {
     -DLLVM_INSTALL_UTILS=ON \
     -DBUILD_SHARED_LIBS=ON \
     -DCMAKE_CXX_STANDARD=17 \
+    -DLIBOMPTARGET_PLUGINS_TO_BUILD='amdgpu;host' \
     $CUDA_PLUGIN \
     -DCLANG_DEFAULT_PIE_ON_LINUX=OFF \
     $AOMP_GFXLIST_OPT \
@@ -268,8 +298,8 @@ build_llvm_gh() {
     cd ${BUILD_DIR}
     echo "-----Running cmake-----"
     echo "cmake -G Ninja $CMAKE_OPTIONS -DLLVM_LIT_ARGS=-vv --show-unsupported --show-xfail -j 32  ${WORK_AREA}/llvm-project/llvm"
+    echo "cmake -G Ninja $CMAKE_OPTIONS -DLLVM_LIT_ARGS=-vv --show-unsupported --show-xfail -j 32  ${WORK_AREA}/llvm-project/llvm"   |   sed -e 's/^+ //'  | tr ' ' '\n' | sed -e '/bin\/cmake/!s/^/        /' -e '$!s/$/ \\/' >> ${BUILD_DIR}/../${BUILD_ID}.cmake
     cmake -G Ninja $CMAKE_OPTIONS -DLLVM_LIT_ARGS="-vv --show-unsupported --show-xfail -j 32" ${WORK_AREA}/llvm-project/llvm
-
     if [ $? != 0 ] ; then
       echo "ERROR cmake failed. Cmake flags" >&2
       echo "      $MYCMAKEOPTS" >&2

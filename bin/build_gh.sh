@@ -28,7 +28,7 @@ do
 	"-u" | "--update")
 	    clean="no"
 	    ;;
-	"--no-check")
+	"--no-check" | "--nocheck")
 	    check="no"
 	    ;;
 	*)
