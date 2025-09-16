@@ -223,7 +223,7 @@ set_up() {
 build_llvm_flang_rt_hostdevice() {
     BLD_DIR=$1
     INSTALL_DIR=$2
-    GFXLIST=${GFXLIST:-"gfx700 gfx701 gfx801 gfx803 gfx900 gfx902 gfx906 gfx908 gfx90a gfx90c gfx942 gfx950 gfx1030 gfx1031 gfx1035 gfx1036 gfx1100 gfx1101 gfx1102 gfx1103 gfx1150 gfx1151 gfx1152 gfx1153 gfx1200 gfx1201 gfx9-generic gfx9-4-generic gfx10-1-generic gfx10-3-generic gfx11-generic gfx12-generic"}
+#    GFXLIST=${GFXLIST:-"gfx700 gfx701 gfx801 gfx803 gfx900 gfx902 gfx906 gfx908 gfx90a gfx90c gfx942 gfx950 gfx1030 gfx1031 gfx1035 gfx1036 gfx1100 gfx1101 gfx1102 gfx1103 gfx1150 gfx1151 gfx1152 gfx1153 gfx1200 gfx1201 gfx9-generic gfx9-4-generic gfx10-1-generic gfx10-3-generic gfx11-generic gfx12-generic"}
 #    GFXLIST=${GFXLIST:-"gfx700 gfx701 gfx801 gfx803 gfx900 gfx902 gfx906 gfx908 gfx90a gfx90c gfx940 gfx941 gfx942 gfx1030 gfx1031 gfx1035 gfx1036 gfx1100 gfx1101 gfx1102 gfx1103 gfx1150 gfx1151 gfx1152 gfx1153 gfx1200 gfx1201 gfx9-generic gfx9-4-generic gfx10-1-generic gfx10-3-generic gfx11-generic gfx12-generic"}
     ARCH_LIST=$(echo $GFXLIST | tr " " ",")
     CMAKE_C_COMPILER=${INSTALL_DIR}/bin/clang
@@ -237,17 +237,21 @@ build_llvm_flang_rt_hostdevice() {
     echo "INSTALL_DIR       = ${INSTALL_DIR}"
     echo "OMPRUNTIME_DIR    = ${OMPRUNTIME_DIR}"
 
+    echo "sleeping for 5 s"
+    sleep 5
     mkdir -p $FRT_BLD_DIR
     cd $FRT_BLD_DIR
     cmake -G Ninja \
-    -DFLANG_EXPERIMENTAL_OMP_OFFLOAD_BUILD="host_device" \
-    -DCMAKE_C_COMPILER=$CMAKE_C_COMPILER \
-    -DCMAKE_CXX_COMPILER=$CMAKE_CXX_COMPILER \
-    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-    "-DCMAKE_C_FLAGS=-I$OMPRUNTIME_DIR" \
-    "-DCMAKE_CXX_FLAGS=-I$OMPRUNTIME_DIR" \
-    -DFLANG_OMP_DEVICE_ARCHITECTURES="$ARCH_LIST" \
-    ~/git/bhandarkar-pranav/llvm-project/flang/runtime
+	  -DLLVM_ENABLE_RUNTIMES=flang-rt \
+	  -DFLANG_RT_EXPERIMENTAL_OFFLOAD_SUPPORT="OpenMP" \
+	  -DFLANG_RT_INCLUDE_TESTS=OFF \
+	  -DFLANG_EXPERIMENTAL_OMP_OFFLOAD_BUILD="host_device" \
+	  -DCMAKE_C_COMPILER=$CMAKE_C_COMPILER \
+	  -DCMAKE_CXX_COMPILER=$CMAKE_CXX_COMPILER \
+	  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+	  -DFLANG_RT_DEVICE_ARCHITECTURES="$ARCH_LIST" \
+	  ~/git/bhandarkar-pranav/llvm-project/runtimes
+    ninja -j128 flang-rt
 
 }
 # Function to build and install github.com/bhandarkar-pranav/llvm-project
@@ -349,7 +353,31 @@ build_llvm_gh() {
     # Create a link called compile_command.json in the source repository
     # to the compilation database, compile_commands.json in the build directory.
     set_up_compile_commands_json_ ${WORK_AREA}/llvm-project
-    popd >/dev/null
+
+    REALPATH_INSTALL_DIR=$(realpath ${INSTALL_DIR})
+    cat <<EOD > ${REALPATH_INSTALL_DIR}/bin/rpath.cfg
+-Wl,-rpath=<CFGDIR>/../lib
+-Wl,-rpath=<CFGDIR>/../lib/x86_64-unknown-linux-gnu
+-L<CFGDIR>/../lib
+-L<CFGDIR>/../lib/x86_64-unknown-linux-gnu
+EOD
+    ln -sf rpath.cfg  ${REALPATH_INSTALL_DIR}/bin/clang++.cfg
+    ln -sf rpath.cfg  ${REALPATH_INSTALL_DIR}/bin/clang.cfg
+    
+    ln -sf rpath.cfg ${REALPATH_INSTALL_DIR}/bin/flang.cfg
+    ln -sf flang.cfg ${TRUNK_INSTALL_DIR}/bin/flang-new.cfg
+   (
+       # workaround for issue with triple subdir and shared builds
+       # problem with libomptarget.so finding dependent libLLVM* libs
+       cd ${REALPATH_INSTALL_DIR}/lib
+       ln -sf x86_64-unknown-linux-gnu/*{.bc,.so,git} .
+   )
+   LATEST_LINK=$(ls -l ${BUILD_ROOT}/latest)
+   echo
+   echo "SUCCESSFUL INSTALL at $REALPATH_INSTALL_DIR"
+   echo "Link setup : ${LATEST_LINK}"
+   echo
+   popd >/dev/null
 }
 get_build_dir_() {
     BUILD_LINK_NAME=$(get_build_link_name_)
