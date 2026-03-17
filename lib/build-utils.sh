@@ -286,14 +286,16 @@ build_llvm_gh() {
     $AOMP_GFXLIST_OPT \
     $AOMP_NVPTX_CAPS_OPT \
     $ENABLE_DEBUG_OPT \
-    -DLLVM_ENABLE_RUNTIMES='openmp;compiler-rt;offload' \
+    -DLLVM_ENABLE_RUNTIMES='libcxx;libcxxabi;libunwind;openmp;offload;compiler-rt;flang-rt' \
+    -DLIBCXXABI_ENABLE_STATIC=ON \
+    -DLLVM_RUNTIME_TARGETS='default;amdgcn-amd-amdhsa' \
+    -DRUNTIMES_amdgcn-amd-amdhsa_LLVM_ENABLE_PER_TARGET_RUNTIME_DIR=ON \
+    -DRUNTIMES_amdgcn-amd-amdhsa_LLVM_ENABLE_RUNTIMES='compiler-rt;libc;libcxx;libcxxabi;flang-rt;openmp'  \
+    -DRUNTIMES_amdgcn-amd-amdhsa_FLANG_RT_LIBC_PROVIDER=llvm \
+    -DRUNTIMES_amdgcn-amd-amdhsa_FLANG_RT_LIBCXX_PROVIDER=llvm \
+    -DRUNTIMES_amdgcn-amd-amdhsa_CACHE_FILES='${WORK_AREA}/llvm-project/compiler-rt/cmake/caches/GPU.cmake;${WORK_AREA}/llvm-project/libcxx/cmake/caches/AMDGPU.cmake'
     "
 
-    # if [ "$BUILD_TYPE" == "Release" ]; then
-    # 	CMAKE_LLVM_RUNTIMES="-DLLVM_ENABLE_RUNTIMES='openmp;compiler-rt'"
-    # else
-    # 	CMAKE_LLVM_RUNTIMES="-DLLVM_ENABLE_RUNTIMES='compiler-rt'"
-    # fi
     set_up_build_dir_ $BUILD_DIR
 
     echo "----- Fresh LLVM build at $BUILD_DIR -----"
