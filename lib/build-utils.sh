@@ -492,7 +492,7 @@ check_all() {
     build_dir=$(get_build_dir_)
     pushd .  >/dev/null
     cd $build_dir
-    llvm_check_ llvm clang mlir flang openmp offload
+    llvm_check_ llvm clang mlir flang openmp flang-rt offload
     popd >/dev/null
 }
 check_some() {
