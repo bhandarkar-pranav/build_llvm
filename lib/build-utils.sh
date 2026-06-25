@@ -293,7 +293,7 @@ build_llvm_gh() {
     -DRUNTIMES_amdgcn-amd-amdhsa_LLVM_ENABLE_RUNTIMES='compiler-rt;libc;libcxx;libcxxabi;flang-rt;openmp'  \
     -DRUNTIMES_amdgcn-amd-amdhsa_FLANG_RT_LIBC_PROVIDER=llvm \
     -DRUNTIMES_amdgcn-amd-amdhsa_FLANG_RT_LIBCXX_PROVIDER=llvm \
-    -DRUNTIMES_amdgcn-amd-amdhsa_CACHE_FILES='${WORK_AREA}/llvm-project/compiler-rt/cmake/caches/GPU.cmake;${WORK_AREA}/llvm-project/libcxx/cmake/caches/AMDGPU.cmake'
+    -DRUNTIMES_amdgcn-amd-amdhsa_CACHE_FILES='${WORK_AREA}/llvm-project/compiler-rt/cmake/caches/AMDGPU.cmake;${WORK_AREA}/llvm-project/libcxx/cmake/caches/AMDGPU.cmake'
     "
 
     set_up_build_dir_ $BUILD_DIR
