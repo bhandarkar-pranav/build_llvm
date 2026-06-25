@@ -417,15 +417,24 @@ get_subdir_for_llvm_test_results() {
     echo ${FORMATTED_DATE}
 }
 get_branch_and_sha() {
-    echo "$( cd ${WORK_AREA}/llvm-project && echo $(git rev-parse --abbrev-ref HEAD)-$(git rev-parse --short HEAD) && cd - >/dev/null )"
+    local src_dir=$1
+    echo "$( cd ${src_dir} && echo $(git rev-parse --abbrev-ref HEAD)-$(git rev-parse --short HEAD) && cd - >/dev/null )"
 }
 handle_llvm_check_error_() {
     echo "check-$1 failed. Results in $2"
 }
 llvm_check_() {
+    local build_dir=$1
+    local src_dir=$2
+    shift 2
+
     LOG_SUBDIR=$(get_subdir_for_llvm_test_results)
     SUFFIX=$(get_suffix_for_llvm_test_results)
-    BRANCH_SHA=$(get_branch_and_sha llvm_project_src_dir)
+    BRANCH_SHA=$(get_branch_and_sha ${src_dir})
+
+    pushd . >/dev/null
+    cd ${build_dir}
+
     LOG_DIR=./ninja_check_dir/${LOG_SUBDIR}/${BRANCH_SHA}
     CMD_ARGS=""
     TESTS=""
@@ -477,32 +486,111 @@ llvm_check_() {
 	#     tail -10 ${LOG_FILE_FULL_PATH}
 	# fi
     done
+
+    popd >/dev/null
 }
 
 check_llvm() {
     setup_if_needed >/dev/null
     build_dir=$(get_build_dir_)
-    pushd . >/dev/null
-    cd $build_dir
-    llvm_check_ llvm
-    popd >/dev/null
+    src_dir=${WORK_AREA}/llvm-project
+    llvm_check_ ${build_dir} ${src_dir} llvm
 }
 check_all() {
     setup_if_needed >/dev/null
     build_dir=$(get_build_dir_)
-    pushd .  >/dev/null
-    cd $build_dir
-    llvm_check_ llvm clang mlir flang openmp flang-rt offload
-    popd >/dev/null
+    src_dir=${WORK_AREA}/llvm-project
+    llvm_check_ ${build_dir} ${src_dir} llvm clang mlir flang openmp flang-rt offload
 }
 check_some() {
     setup_if_needed >/dev/null
     build_dir=$(get_build_dir_)
-    pushd .  >/dev/null
-    cd $build_dir
-    llvm_check_ $@
-    popd > /dev/null
+    src_dir=${WORK_AREA}/llvm-project
+    llvm_check_ ${build_dir} ${src_dir} $@
 }
+# AOMP helper functions
+get_aomp_build_dir() {
+    # Default AOMP build directory
+    local default_aomp_build_dir="${HOME}/git/aomp${AOMP_MAJOR_VERSION}.${AOMP_MINOR_VERSION}/build/llvm-project"
+
+    # Use AOMP_BUILD_DIR if set, otherwise use default
+    local aomp_build_dir=${AOMP_BUILD_DIR:-${default_aomp_build_dir}}
+
+    # Check if version variables are needed but not set
+    if [ -z "${AOMP_BUILD_DIR}" ]; then
+        if [ -z "${AOMP_MAJOR_VERSION}" ] || [ -z "${AOMP_MINOR_VERSION}" ]; then
+            echo "ERROR: AOMP version not set. Please set AOMP_MAJOR_VERSION and AOMP_MINOR_VERSION" >&2
+            echo "       or set AOMP_BUILD_DIR explicitly to the AOMP build directory" >&2
+            return 1
+        fi
+    fi
+
+    # Validate that directory exists
+    if [ ! -d "${aomp_build_dir}" ]; then
+        echo "ERROR: AOMP build directory not found: ${aomp_build_dir}" >&2
+        return 1
+    fi
+
+    # Validate that it looks like an LLVM build directory
+    if [ ! -f "${aomp_build_dir}/build.ninja" ]; then
+        echo "ERROR: ${aomp_build_dir} does not appear to be a valid LLVM build directory" >&2
+        echo "       (build.ninja not found)" >&2
+        return 1
+    fi
+
+    echo "${aomp_build_dir}"
+}
+
+get_aomp_src_dir() {
+    # Default AOMP source directory
+    local default_aomp_src_dir="${HOME}/git/aomp${AOMP_MAJOR_VERSION}.${AOMP_MINOR_VERSION}/llvm-project"
+
+    # Use AOMP_SRC_DIR if set, otherwise use default
+    local aomp_src_dir=${AOMP_SRC_DIR:-${default_aomp_src_dir}}
+
+    # Check if version variables are needed but not set
+    if [ -z "${AOMP_SRC_DIR}" ]; then
+        if [ -z "${AOMP_MAJOR_VERSION}" ] || [ -z "${AOMP_MINOR_VERSION}" ]; then
+            echo "ERROR: AOMP version not set. Please set AOMP_MAJOR_VERSION and AOMP_MINOR_VERSION" >&2
+            echo "       or set AOMP_SRC_DIR explicitly to the AOMP source directory" >&2
+            return 1
+        fi
+    fi
+
+    # Validate that directory exists
+    if [ ! -d "${aomp_src_dir}" ]; then
+        echo "ERROR: AOMP source directory not found: ${aomp_src_dir}" >&2
+        return 1
+    fi
+
+    # Validate that it looks like a git repository
+    if [ ! -d "${aomp_src_dir}/.git" ]; then
+        echo "ERROR: ${aomp_src_dir} does not appear to be a git repository" >&2
+        return 1
+    fi
+
+    echo "${aomp_src_dir}"
+}
+
+# AOMP testing functions
+check_aomp() {
+    build_dir=$(get_aomp_build_dir) || return 1
+    src_dir=$(get_aomp_src_dir) || return 1
+    llvm_check_ ${build_dir} ${src_dir} llvm
+}
+
+check_aomp_all() {
+    build_dir=$(get_aomp_build_dir) || return 1
+    src_dir=$(get_aomp_src_dir) || return 1
+    llvm_check_ ${build_dir} ${src_dir} llvm clang mlir flang openmp flang-rt offload
+}
+
+check_aomp_some() {
+    build_dir=$(get_aomp_build_dir) || return 1
+    src_dir=$(get_aomp_src_dir) || return 1
+    llvm_check_ ${build_dir} ${src_dir} $@
+}
+
 clone_llvm_testsuite() {
     if [ ! -d ${WORK_AREA}/llvm-test-suite ];
     then
