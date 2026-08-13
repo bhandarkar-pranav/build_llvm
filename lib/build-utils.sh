@@ -378,6 +378,14 @@ EOD
    echo
    echo "SUCCESSFUL INSTALL at $REALPATH_INSTALL_DIR"
    echo "Link setup : ${LATEST_LINK}"
+
+   # Create a convenience link in ${HOME}/${USER_OR_ORG} pointing to the install directory
+   HOME_LINK="${HOME}/${USER_OR_ORG}"
+   if [ -L "${HOME_LINK}" ]; then
+       rm "${HOME_LINK}"
+   fi
+   ln -sf "${REALPATH_INSTALL_DIR}" "${HOME_LINK}"
+   echo "Home directory link: ${HOME_LINK} -> ${REALPATH_INSTALL_DIR}"
    echo
    popd >/dev/null
 }
