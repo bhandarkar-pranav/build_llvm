@@ -40,8 +40,15 @@ done
 if [[ "$clean" == "yes" ]];
 then
     build_llvm_gh
+    build_status=$?
 else
     update_llvm_gh
+    build_status=$?
+fi
+
+if [[ $build_status -ne 0 ]]; then
+    echo "Build failed with exit code $build_status. Skipping tests." >&2
+    exit $build_status
 fi
 
 if [[ "$check" == "yes" ]];
