@@ -91,6 +91,12 @@ clone_repo_() {
 	set -x
 	git clone git@github.com:${USER_OR_ORG}/llvm-project.git ${WORK_AREA}/llvm-project
 	set +x
+
+	# Set up git hooks after successful clone
+	if [ $? -eq 0 ]; then
+	    echo "Setting up git hooks for ${WORK_AREA}/llvm-project"
+	    setup_hooks_ ${WORK_AREA}/llvm-project
+	fi
     fi
 }
 set_up_env_global_vars_() {
@@ -208,6 +214,62 @@ get_build_link_name_() {
 set_up_compile_commands_json_() {
     BUILD_LINK_NAME=$(get_build_link_name_)
     ln -sf  ${BUILD_ROOT}/${BUILD_LINK_NAME}/compile_commands.json ${1}/compile_commands.json
+}
+
+# Set up git hooks for LLVM development
+# Configures the pre-commit hook to use LLVM's code-format-helper.py
+# Arguments:
+#   $1 - Path to the llvm-project repository
+setup_hooks_() {
+    local llvm_src_dir=$1
+
+    # Validate that the path exists and is a git repository
+    if [ ! -d "${llvm_src_dir}" ]; then
+        echo "ERROR: LLVM source directory not found: ${llvm_src_dir}" >&2
+        return 1
+    fi
+
+    if [ ! -d "${llvm_src_dir}/.git" ]; then
+        echo "ERROR: ${llvm_src_dir} is not a git repository" >&2
+        return 1
+    fi
+
+    # Validate that the code-format-helper.py exists
+    local format_helper="${llvm_src_dir}/llvm/utils/git/code-format-helper.py"
+    if [ ! -f "${format_helper}" ]; then
+        echo "ERROR: code-format-helper.py not found at ${format_helper}" >&2
+        return 1
+    fi
+
+    # Create .git/hooks directory if it doesn't exist
+    local hooks_dir="${llvm_src_dir}/.git/hooks"
+    mkdir -p "${hooks_dir}"
+
+    # Set up the pre-commit hook symlink
+    local pre_commit_hook="${hooks_dir}/pre-commit"
+
+    # Remove existing hook if it's a symlink or regular file
+    if [ -L "${pre_commit_hook}" ] || [ -f "${pre_commit_hook}" ]; then
+        echo "Removing existing pre-commit hook at ${pre_commit_hook}"
+        rm "${pre_commit_hook}"
+    fi
+
+    # Create the symlink
+    echo "Creating pre-commit hook symlink: ${pre_commit_hook} -> ${format_helper}"
+    ln -s "${format_helper}" "${pre_commit_hook}"
+
+    # Make sure the hook is executable
+    chmod +x "${pre_commit_hook}"
+
+    # Configure git to use the hooks directory
+    echo "Configuring git core.hooksPath for ${llvm_src_dir}"
+    (
+        cd "${llvm_src_dir}"
+        git config core.hooksPath .git/hooks
+    )
+
+    echo "Git hooks successfully configured for ${llvm_src_dir}"
+    return 0
 }
 
 # Perform set up actions which really should be needed only once on a new system.
@@ -381,13 +443,43 @@ EOD
    echo "SUCCESSFUL INSTALL at $REALPATH_INSTALL_DIR"
    echo "Link setup : ${LATEST_LINK}"
 
-   # Create a convenience link in ${HOME}/${USER_OR_ORG} pointing to the install directory
-   HOME_LINK="${HOME}/${USER_OR_ORG}"
-   if [ -L "${HOME_LINK}" ]; then
-       rm "${HOME_LINK}"
+   # Create a two-level link structure to handle shared home directories across machines:
+   # 1. Machine-local link: /work/prbhanda/${USER_OR_ORG} -> actual install directory
+   # 2. Shared home link: ${HOME}/${USER_OR_ORG} -> /work/prbhanda/${USER_OR_ORG}
+   #
+   # This ensures the home link works on all machines, even though installations
+   # are on machine-local drives (e.g., /work2)
+
+   # Step 1: Create machine-local link at /work/prbhanda/${USER_OR_ORG}
+   LOCAL_LINK_DIR="/work/prbhanda"
+   LOCAL_LINK="${LOCAL_LINK_DIR}/${USER_OR_ORG}"
+
+   # Ensure /work/prbhanda exists (create if needed)
+   if [ ! -d "${LOCAL_LINK_DIR}" ]; then
+       echo "Creating directory: ${LOCAL_LINK_DIR}"
+       mkdir -p "${LOCAL_LINK_DIR}"
    fi
-   ln -sf "${REALPATH_INSTALL_DIR}" "${HOME_LINK}"
-   echo "Home directory link: ${HOME_LINK} -> ${REALPATH_INSTALL_DIR}"
+
+   # Remove old link if it exists
+   if [ -L "${LOCAL_LINK}" ] || [ -e "${LOCAL_LINK}" ]; then
+       rm -f "${LOCAL_LINK}"
+   fi
+
+   # Create machine-local link to actual install
+   ln -sf "${REALPATH_INSTALL_DIR}" "${LOCAL_LINK}"
+   echo "Machine-local link: ${LOCAL_LINK} -> ${REALPATH_INSTALL_DIR}"
+
+   # Step 2: Create home directory link pointing to machine-local link
+   HOME_LINK="${HOME}/${USER_OR_ORG}"
+
+   # Remove old link if it exists
+   if [ -L "${HOME_LINK}" ] || [ -e "${HOME_LINK}" ]; then
+       rm -f "${HOME_LINK}"
+   fi
+
+   # Create home link to machine-local link
+   ln -sf "${LOCAL_LINK}" "${HOME_LINK}"
+   echo "Home directory link: ${HOME_LINK} -> ${LOCAL_LINK}"
    echo
    popd >/dev/null
 }
