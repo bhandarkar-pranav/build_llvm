@@ -338,7 +338,7 @@ build_llvm_gh() {
     -DCOMPILER_RT_BUILD_LIBFUZZER=OFF \
     -DCOMPILER_RT_BUILD_SANITIZERS=ON \
     $AOMP_CCACHE_OPTS \
-    -DLLVM_ENABLE_PROJECTS='clang;lld;llvm;flang' \
+    -DLLVM_ENABLE_PROJECTS='clang;lld;llvm;mlir;flang' \
     -DLLVM_INSTALL_UTILS=ON \
     -DBUILD_SHARED_LIBS=ON \
     -DCMAKE_CXX_STANDARD=17 \
